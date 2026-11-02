@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
-const BASE = import.meta.env.VITE_API_BASE_URL || "";
+const BASE = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/+$/, ""); // no trailing slash
+const arr = (d) => (Array.isArray(d) ? d : []);
 let token = "";
 async function api(path, opts = {}) {
   const r = await fetch(BASE + "/api" + path, { ...opts, headers: { "Content-Type": "application/json", Authorization: "Bearer " + token, ...(opts.headers || {}) },
@@ -160,7 +161,7 @@ function Tracker({ status }) {
 
 function Mine({ go }) {
   const [list, setList] = useState(null), [err, setErr] = useState("");
-  useEffect(() => { api("/complaints").then(setList).catch(e => setErr(e.message)); }, []);
+  useEffect(() => { api("/complaints").then(d => setList(arr(d))).catch(e => setErr(e.message)); }, []);
   return (<><h2>My complaints</h2>{err && <div className="err" role="alert">{err}</div>}{!list && !err && <p>Loading…</p>}
     {list && !list.length && <div className="card empty">You haven't reported anything yet.<br /><button onClick={() => go("report")}>Report an issue</button></div>}
     {list && list.map(c => (<div className="card" key={c.id}>
@@ -175,7 +176,7 @@ function Mine({ go }) {
 function Report({ done }) {
   const [sectors, setSectors] = useState([]), [text, setText] = useState(""), [sector, setSector] = useState("");
   const [draft, setDraft] = useState(null), [anon, setAnon] = useState(false), [err, setErr] = useState(""), [busy, setBusy] = useState(false), [ok, setOk] = useState(null), [photos, setPhotos] = useState([]), [notice, setNotice] = useState("");
-  useEffect(() => { fetch(BASE + "/api/meta").then(r => r.json()).then(d => setSectors(d.sectors)); }, []);
+  useEffect(() => { fetch(BASE + "/api/meta").then(r => r.json()).then(d => setSectors(arr(d.sectors))).catch(() => setErr("Can't reach the server right now. If it was idle, wait a minute and refresh the page.")); }, []);
   function listen() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return setErr("Voice input is not supported in this browser. Please type your complaint.");
@@ -237,7 +238,7 @@ function Report({ done }) {
 function AllComplaints() {
   const [list, setList] = useState(null), [err, setErr] = useState(""), [open, setOpen] = useState(false);
   const [f, setF] = useState({ date: "all", type: "all", status: "all" });
-  useEffect(() => { api("/public/complaints").then(setList).catch(e => setErr(e.message)); }, []);
+  useEffect(() => { api("/public/complaints").then(d => setList(arr(d))).catch(e => setErr(e.message)); }, []);
   const days = { week: 7, month: 30 };
   const shown = (list || []).filter(c => (f.type === "all" || c.sector === f.type) && (f.status === "all" || c.status === f.status)
     && (f.date === "all" || Date.now() - new Date(c.created_at) <= days[f.date] * 864e5));
@@ -278,8 +279,8 @@ const NEXT = { Submitted: ["Acknowledged"], Acknowledged: ["In Progress"], "In P
 function Admin({ user, tab }) {
   const [list, setList] = useState([]), [stats, setStats] = useState(null), [log, setLog] = useState([]), [fb, setFb] = useState([]), [err, setErr] = useState("");
   async function load() {
-    setList(await api("/admin/complaints")); setStats(await api("/admin/analytics"));
-    if (user.role === "admin") { setLog(await api("/admin/audit")); setFb(await api("/admin/feedback")); }
+    setList(arr(await api("/admin/complaints"))); setStats(await api("/admin/analytics"));
+    if (user.role === "admin") { setLog(arr(await api("/admin/audit"))); setFb(arr(await api("/admin/feedback"))); }
   }
   useEffect(() => { load().catch(e => setErr(e.message)); }, [tab]);
   async function move(id, status) { try { await api(`/admin/complaints/${id}/status`, { method: "PATCH", body: { status } }); await load(); } catch (e) { setErr(e.message); } }
